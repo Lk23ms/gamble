@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TÀI XỈU ESCROW // Server Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --void: #05070f; --void-2: #0a0e1c; --panel: #0d1224; --panel-edge: #1a2140;
+  --grid-line: rgba(90, 140, 255, 0.06);
+  --money-blue: #3ea7ff; --money-yellow: #ffcf3e; --luck-green: #3effa0; --luck-red: #ff3e5e;
+  --text-hi: #eaf0ff; --text-mid: #8b93b8; --text-dim: #4c5378;
+  --font-display: 'Chakra Petch', sans-serif; --font-mono: 'Space Mono', monospace;
+  --glow-blue: 0 0 8px rgba(62,167,255,.6), 0 0 24px rgba(62,167,255,.25);
+  --glow-yellow: 0 0 8px rgba(255,207,62,.6), 0 0 24px rgba(255,207,62,.25);
+  --glow-green: 0 0 8px rgba(62,255,160,.65), 0 0 28px rgba(62,255,160,.3);
+  --glow-red: 0 0 8px rgba(255,62,94,.65), 0 0 28px rgba(255,62,94,.3);
+}
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background:
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0/40px 40px,
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0/40px 40px,
+    radial-gradient(ellipse at 20% -10%, rgba(62,167,255,.10), transparent 55%),
+    radial-gradient(ellipse at 90% 110%, rgba(255,207,62,.08), transparent 55%),
+    var(--void);
+  color: var(--text-hi); font-family: var(--font-display); min-height: 100vh;
+}
+::selection { background: var(--money-blue); color: var(--void); }
+.screen { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 32px 16px 64px; }
+.topbar { width: 100%; max-width: 960px; display: flex; justify-content: space-between; align-items: center; padding: 10px 4px 28px; }
+.brand { font-family: var(--font-mono); font-weight: 700; letter-spacing: 3px; font-size: 13px; color: var(--text-mid); }
+.brand b { color: var(--money-blue); text-shadow: var(--glow-blue); }
+.card { width: 100%; max-width: 480px; background: linear-gradient(180deg, var(--panel), var(--void-2)); border: 1px solid var(--panel-edge); border-radius: 18px; padding: 28px; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.card::before { content:''; position:absolute; inset:0; border-radius:18px; padding:1px; background: linear-gradient(135deg, rgba(62,167,255,.35), transparent 40%, rgba(255,207,62,.25)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events:none; }
+.card-wide { max-width: 840px; }
+.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 3px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 6px; }
+h1.title { font-size: 26px; margin: 0 0 4px; letter-spacing: .5px; }
+p.subtitle { color: var(--text-mid); font-size: 14px; margin: 0 0 24px; line-height: 1.5; }
+.field { margin-bottom: 18px; }
+.field label { display: block; font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px; color: var(--text-mid); text-transform: uppercase; margin-bottom: 8px; }
+input.tx-input, select.tx-input { width: 100%; background: var(--void); border: 1px solid var(--panel-edge); color: var(--text-hi); font-family: var(--font-mono); font-size: 16px; padding: 14px 16px; border-radius: 10px; outline: none; transition: border-color .2s, box-shadow .2s; }
+input.tx-input:focus, select.tx-input:focus { border-color: var(--money-blue); box-shadow: 0 0 0 3px rgba(62,167,255,.15); }
+input.tx-input::placeholder { color: var(--text-dim); }
+.error-text { color: var(--luck-red); font-size: 12px; margin-top: 8px; font-family: var(--font-mono); }
+.btn { font-family: var(--font-display); font-weight: 600; font-size: 15px; letter-spacing: .5px; border: none; border-radius: 10px; padding: 14px 20px; cursor: pointer; width: 100%; transition: transform .15s, box-shadow .2s, filter .15s; }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-primary { background: linear-gradient(135deg, var(--money-blue), #2a7fd4); color: #04101f; box-shadow: var(--glow-blue); }
+.btn-primary:hover:not(:disabled) { filter: brightness(1.12); }
+.btn-gold { background: linear-gradient(135deg, var(--money-yellow), #d4a02a); color: #241a02; box-shadow: var(--glow-yellow); }
+.btn-gold:hover:not(:disabled) { filter: brightness(1.12); }
+.btn-win { background: linear-gradient(135deg, var(--luck-green), #1fae6f); color: #032414; box-shadow: var(--glow-green); }
+.btn-win:hover:not(:disabled) { filter: brightness(1.12); }
+.btn-lose { background: linear-gradient(135deg, var(--luck-red), #b8203f); color: #2a0209; box-shadow: var(--glow-red); }
+.btn-lose:hover:not(:disabled) { filter: brightness(1.12); }
+.btn-ghost { background: transparent; border: 1px solid var(--panel-edge); color: var(--text-mid); }
+.btn-ghost:hover:not(:disabled) { border-color: var(--text-mid); color: var(--text-hi); }
+.btn-row { display: flex; gap: 10px; }
+.cmd-box { background: var(--void); border: 1px dashed var(--panel-edge); border-radius: 10px; padding: 14px 16px; font-family: var(--font-mono); font-size: 15px; color: var(--money-yellow); text-shadow: var(--glow-yellow); display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 18px; word-break: break-all; }
+.cmd-copy { flex-shrink: 0; background: var(--panel-edge); color: var(--text-hi); border: none; border-radius: 6px; padding: 8px 12px; font-family: var(--font-mono); font-size: 11px; cursor: pointer; transition: background .15s; }
+.cmd-copy:hover { background: var(--money-blue); color: #04101f; }
+.amount-money { color: var(--money-blue); text-shadow: var(--glow-blue); font-family: var(--font-mono); font-weight: 700; }
+.amount-gold { color: var(--money-yellow); text-shadow: var(--glow-yellow); font-family: var(--font-mono); font-weight: 700; }
+.pill { display: inline-block; font-family: var(--font-mono); font-size: 11px; letter-spacing: 1.5px; padding: 4px 10px; border-radius: 999px; text-transform: uppercase; }
+.pill-pending { background: rgba(139,147,184,.15); color: var(--text-mid); }
+.pill-host { background: rgba(255,207,62,.12); color: var(--money-yellow); box-shadow: var(--glow-yellow); }
+.pill-player { background: rgba(62,167,255,.12); color: var(--money-blue); box-shadow: var(--glow-blue); }
+.pill-waiting { background: rgba(139,147,184,.15); color: var(--text-mid); }
+.spinner-wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 40px 0; }
+.spinner { width: 64px; height: 64px; border-radius: 50%; border: 3px solid rgba(62,167,255,.15); border-top-color: var(--money-blue); animation: spin .9s linear infinite; box-shadow: var(--glow-blue); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.wait-text { font-family: var(--font-mono); color: var(--text-mid); font-size: 13px; letter-spacing: 1px; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity:.5; } 50% { opacity:1; } }
+.result-pop { text-align: center; padding: 40px 20px; animation: popIn .45s cubic-bezier(.34,1.56,.64,1); }
+@keyframes popIn { 0% { opacity:0; transform: scale(.7) translateY(10px);} 100% { opacity:1; transform: scale(1) translateY(0);} }
+.result-title-win { font-size: 32px; font-weight: 700; color: var(--luck-green); text-shadow: 0 0 12px rgba(62,255,160,.8), 0 0 40px rgba(62,255,160,.4); margin-bottom: 10px; }
+.result-title-lose { font-size: 32px; font-weight: 700; color: var(--luck-red); text-shadow: 0 0 12px rgba(255,62,94,.8), 0 0 40px rgba(255,62,94,.4); margin-bottom: 10px; }
+.result-note { color: var(--text-mid); font-size: 14px; margin-bottom: 24px; }
+.fade-in { animation: fadeIn .35s ease both; }
+@keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform: translateY(0);} }
+.queue-item { background: var(--void); border: 1px solid var(--panel-edge); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; animation: fadeIn .3s ease both; }
+.qi-name { font-weight: 600; font-size: 15px; }
+.qi-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+.user-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: var(--void); border: 1px solid var(--panel-edge); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; }
+.role-btn { font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--panel-edge); background: transparent; color: var(--text-mid); cursor: pointer; transition: all .15s; }
+.role-btn:hover { color: var(--text-hi); border-color: var(--money-blue); }
+.role-btn.active-host { background: rgba(255,207,62,.15); color: var(--money-yellow); border-color: var(--money-yellow); }
+.role-btn.active-player { background: rgba(62,167,255,.15); color: var(--money-blue); border-color: var(--money-blue); }
+.empty-state { text-align: center; color: var(--text-dim); font-family: var(--font-mono); font-size: 13px; padding: 40px 0; }
+.danger-zone { margin-top: 32px; border-top: 1px solid var(--panel-edge); padding-top: 18px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useCallback, createContext, useContext } = React;
+
+// ============ FIREBASE INIT ============
+// 👉 Config này lấy từ Firebase Console > Project Settings > Your apps
+firebase.initializeApp({
+  apiKey: 'AIzaSyC8N9mUQNVaSQyVm8ceLRn9tLiLEJz5zHk',
+  authDomain: 'taixiu-server.firebaseapp.com',
+  databaseURL: 'https://taixiu-server-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: 'taixiu-server',
+  storageBucket: 'taixiu-server.firebasestorage.app',
+  messagingSenderId: '969019204401',
+  appId: '1:969019204401:web:793271eb89215762ee8610',
+});
+const db = firebase.database();
+
+// 👉 ĐỔI mật khẩu này trước khi public link cho người khác
+const ADMIN_PASSCODE = 'khoi-admin-2026';
+const MULTIPLIER = 2;
+const RESET_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+// ============ UTILS: tiền tệ K/M/B ============
+function parseAmount(raw) {
+  if (raw === null || raw === undefined) return 0;
+  const str = String(raw).trim().toLowerCase().replace(/,/g, '');
+  if (!str) return 0;
+  const match = str.match(/^(\d+(?:\.\d+)?)\s*(k|m|b)?$/);
+  if (!match) return NaN;
+  const value = parseFloat(match[1]);
+  const multiplier = { k: 1e3, m: 1e6, b: 1e9 }[match[2]] ?? 1;
+  return Math.round(value * multiplier);
+}
+function formatAmount(num) {
+  if (num == null || isNaN(num)) return '0';
+  const n = Number(num), abs = Math.abs(n);
+  const trim = (x) => Number(x.toFixed(2)).toString();
+  if (abs >= 1e9) return trim(n / 1e9) + 'B';
+  if (abs >= 1e6) return trim(n / 1e6) + 'M';
+  if (abs >= 1e3) return trim(n / 1e3) + 'K';
+  return n.toLocaleString('vi-VN');
+}
+function formatFull(num) {
+  if (num == null || isNaN(num)) return '0';
+  return Math.round(Number(num)).toLocaleString('vi-VN').replace(/,/g, '.');
+}
+
+// ============ HOOK: lắng nghe 1 collection realtime ============
+function useCollection(path) {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    const r = db.ref(path);
+    const cb = (snap) => {
+      const val = snap.val() || {};
+      setItems(Object.entries(val).map(([id, data]) => ({ id, ...data })));
+    };
+    r.on('value', cb);
+    return () => r.off('value', cb);
+  }, [path]);
+  return { items };
+}
+
+// ============ AUTH CONTEXT ============
+const AuthContext = createContext(null);
+
+function getLocalUid() {
+  let uid = localStorage.getItem('txd_uid');
+  if (!uid) {
+    uid = crypto.randomUUID();
+    localStorage.setItem('txd_uid', uid);
+  }
+  return uid;
+}
+
+function AuthProvider({ children }) {
+  const [uid] = useState(getLocalUid);
+  const [userDoc, setUserDoc] = useState(undefined);
+  const [isAdmin, setIsAdmin] = useState(() => sessionStorage.getItem('txd_admin') === '1');
+
+  useEffect(() => {
+    const r = db.ref(`users/${uid}`);
+    const cb = (snap) => setUserDoc(snap.exists() ? snap.val() : null);
+    r.on('value', cb);
+    return () => r.off('value', cb);
+  }, [uid]);
+
+  const registerName = useCallback(async (name) => {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error('Tên không được để trống');
+    const snap = await db.ref('users').orderByChild('name').equalTo(trimmed).once('value');
+    let dup = false;
+    snap.forEach((child) => {
+      if (child.key !== uid && child.val().status !== 'left') dup = true;
+    });
+    if (dup) throw new Error('Tên này đang có người sử dụng, vui lòng chọn tên khác.');
+
+    await db.ref(`users/${uid}`).set({
+      name: trimmed, role: 'pending', status: 'pending',
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      lastSeen: firebase.database.ServerValue.TIMESTAMP,
+    });
+    db.ref(`users/${uid}/status`).onDisconnect().set('left');
+  }, [uid]);
+
+  const loginAdmin = useCallback((pass) => {
+    if (pass === ADMIN_PASSCODE) {
+      sessionStorage.setItem('txd_admin', '1');
+      setIsAdmin(true);
+      return true;
+    }
+    return false;
+  }, []);
+
+  const logoutAdmin = useCallback(() => {
+    sessionStorage.removeItem('txd_admin');
+    setIsAdmin(false);
+  }, []);
+
+  const leaveSession = useCallback(async () => {
+    await db.ref(`users/${uid}/status`).set('left');
+    localStorage.removeItem('txd_uid');
+    window.location.reload();
+  }, [uid]);
+
+  return (
+    <AuthContext.Provider value={{ uid, userDoc, isAdmin, registerName, loginAdmin, logoutAdmin, leaveSession }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+function useAuth() { return useContext(AuthContext); }
+
+// ============ COMPONENT: NameGate ============
+function NameGate() {
+  const { registerName } = useAuth();
+  const [name, setName] = useState('');
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setErr(''); setLoading(true);
+    try { await registerName(name); }
+    catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <div className="card fade-in">
+      <div className="eyebrow">// Truy Cập Hệ Thống</div>
+      <h1 className="title">Nhập tên trong game</h1>
+      <p className="subtitle">Tên này sẽ được dùng để Admin nhận diện và cấp quyền (Nhà cái / Người chơi).</p>
+      <form onSubmit={handleSubmit}>
+        <div className="field">
+          <label>IGN Minecraft</label>
+          <input className="tx-input" placeholder="VD: Khoi_Dev" value={name}
+            onChange={(e) => setName(e.target.value)} maxLength={24} autoFocus />
+        </div>
+        {err && <div className="error-text">⚠ {err}</div>}
+        <button className="btn btn-primary" disabled={loading || !name.trim()}>
+          {loading ? 'Đang gửi...' : 'Vào hàng chờ duyệt'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+// ============ COMPONENT: PendingApproval ============
+function PendingApproval({ name }) {
+  return (
+    <div className="card fade-in">
+      <div className="eyebrow">// Trạng Thái Tài Khoản</div>
+      <h1 className="title">Xin chào, {name}</h1>
+      <p className="subtitle">Tài khoản đang <b style={{ color: 'var(--text-hi)' }}>chờ Admin duyệt</b> vai trò.</p>
+      <div className="spinner-wrap">
+        <div className="spinner" />
+        <div className="wait-text">ĐANG CHỜ ADMIN CẤP ROLE...</div>
+      </div>
+    </div>
+  );
+}
+
+// ============ COMPONENT: PlayerUI ============
+function PlayerUI() {
+  const { uid, userDoc } = useAuth();
+  const { items: allUsers } = useCollection('users');
+  const { items: allQueue } = useCollection('queue');
+
+  const hosts = useMemo(() => allUsers.filter((u) => u.role === 'host' && u.status === 'approved'), [allUsers]);
+  const activeBet = useMemo(() => {
+    const mine = allQueue.filter((q) => q.playerId === uid && !q.acknowledged);
+    mine.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    return mine[0] || null;
+  }, [allQueue, uid]);
+
+  const [amountInput, setAmountInput] = useState('');
+  const [selectedHostId, setSelectedHostId] = useState('');
+  const [err, setErr] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const parsedAmount = parseAmount(amountInput);
+  const validAmount = !isNaN(parsedAmount) && parsedAmount > 0;
+  const effectiveHostId = selectedHostId || hosts[0]?.id || '';
+  const effectiveHost = hosts.find((h) => h.id === effectiveHostId);
+  const payCommand = effectiveHost && validAmount ? `/pay ${effectiveHost.name} ${formatFull(parsedAmount)}` : '';
+
+  function copyCmd() {
+    navigator.clipboard.writeText(payCommand);
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function handleConfirmBank() {
+    if (!validAmount) return setErr('Số tiền không hợp lệ (VD: 200k, 1.5m, 2b)');
+    if (!effectiveHost) return setErr('Chưa có Nhà cái nào đang hoạt động.');
+    setErr('');
+    const betRef = db.ref('queue').push();
+    await betRef.set({
+      playerId: uid, playerName: userDoc?.name || '???',
+      hostId: effectiveHost.id, hostName: effectiveHost.name,
+      amount: parsedAmount, status: 'waiting', acknowledged: false,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+    });
+  }
+
+  async function handleAcknowledge() {
+    if (!activeBet) return;
+    await db.ref(`queue/${activeBet.id}/acknowledged`).set(true);
+    setAmountInput('');
+  }
+
+  if (activeBet && activeBet.status === 'waiting') {
+    return (
+      <div className="card fade-in">
+        <div className="eyebrow">// Đang Xử Lý</div>
+        <h1 className="title">Giao dịch đang chờ</h1>
+        <p className="subtitle">Cược <span className="amount-gold">{formatAmount(activeBet.amount)}</span> với nhà cái <b>{activeBet.hostName}</b></p>
+        <div className="spinner-wrap">
+          <div className="spinner" />
+          <div className="wait-text">ĐANG CHỜ NHÀ CÁI KIỂM TRA...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeBet && ['win', 'lose', 'rejected'].includes(activeBet.status)) {
+    const isWin = activeBet.status === 'win';
+    const isRejected = activeBet.status === 'rejected';
+    return (
+      <div className="card fade-in">
+        <div className="result-pop">
+          {isRejected ? (
+            <>
+              <div className="result-title-lose">BỊ TỪ CHỐI</div>
+              <p className="result-note">Nhà cái chưa nhận được tiền trong game. Vui lòng kiểm tra lại.</p>
+            </>
+          ) : isWin ? (
+            <>
+              <div className="result-title-win">🎉 THẮNG</div>
+              <p className="result-note">
+                Bạn thắng <span className="amount-gold">{formatAmount(activeBet.winAmount || activeBet.amount * 2)}</span><br />
+                Vui lòng check giao dịch bank tiền trong game!
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="result-title-lose">THUA</div>
+              <p className="result-note">Chúc bạn may mắn lần sau!</p>
+            </>
+          )}
+          <button className="btn btn-primary" onClick={handleAcknowledge}>Cược Ván Mới</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card fade-in">
+      <div className="eyebrow">// Bàn Cược</div>
+      <h1 className="title">Đặt cược Tài Xỉu</h1>
+      <p className="subtitle">Nhập số tiền muốn cược (hỗ trợ K / M / B).</p>
+      {hosts.length === 0 && <div className="error-text" style={{ marginBottom: 16 }}>⚠ Hiện chưa có Nhà cái nào online.</div>}
+      {hosts.length > 1 && (
+        <div className="field">
+          <label>Chọn Nhà Cái</label>
+          <select className="tx-input" value={effectiveHostId} onChange={(e) => setSelectedHostId(e.target.value)}>
+            {hosts.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div className="field">
+        <label>Số tiền cược</label>
+        <input className="tx-input" placeholder="VD: 500k, 1.2m, 2b" value={amountInput}
+          onChange={(e) => setAmountInput(e.target.value)} />
+      </div>
+      {validAmount && (
+        <div className="field">
+          <label>Số tiền quy đổi</label>
+          <div className="amount-money" style={{ fontSize: 20 }}>{formatFull(parsedAmount)} $</div>
+        </div>
+      )}
+      {payCommand && (
+        <div className="cmd-box">
+          <span>{payCommand}</span>
+          <button className="cmd-copy" onClick={copyCmd}>{copied ? '✓ Đã chép' : 'COPY'}</button>
+        </div>
+      )}
+      {err && <div className="error-text">⚠ {err}</div>}
+      <button className="btn btn-gold" disabled={!validAmount || !effectiveHost} onClick={handleConfirmBank}>
+        Đã Bank — Vào Hàng Chờ
+      </button>
+    </div>
+  );
+}
+
+// ============ COMPONENT: HostDashboard ============
+function HostDashboard() {
+  const { uid } = useAuth();
+  const { items: allQueue } = useCollection('queue');
+  const [copiedId, setCopiedId] = useState(null);
+
+  const myQueue = useMemo(() => {
+    const mine = allQueue.filter((q) => q.hostId === uid && q.status === 'waiting');
+    mine.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    return mine;
+  }, [allQueue, uid]);
+
+  async function resolve(bet, status) {
+    await db.ref(`queue/${bet.id}/status`).set(status);
+    if (status === 'win') await db.ref(`queue/${bet.id}/winAmount`).set(bet.amount * MULTIPLIER);
+  }
+
+  function copyCmd(bet) {
+    navigator.clipboard.writeText(`/pay ${bet.playerName} ${formatFull(bet.amount * MULTIPLIER)}`);
+    setCopiedId(bet.id); setTimeout(() => setCopiedId(null), 1500);
+  }
+
+  return (
+    <div className="card card-wide fade-in">
+      <div className="eyebrow">// Bàn Nhà Cái</div>
+      <h1 className="title">Hàng đợi xử lý ({myQueue.length})</h1>
+      <p className="subtitle">Xử lý theo thứ tự vào trước (FIFO).</p>
+      {myQueue.length === 0 && <div className="empty-state">Hàng đợi trống — chưa có ai đặt cược.</div>}
+      {myQueue.map((bet, idx) => (
+        <div key={bet.id} className="queue-item fade-in">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div>
+              <div className="qi-name">#{idx + 1} — {bet.playerName}</div>
+              <div className="qi-meta">Cược: <span className="amount-gold">{formatAmount(bet.amount)}</span></div>
+            </div>
+            <span className="pill pill-waiting">Chờ xử lý</span>
+          </div>
+          <div className="cmd-box" style={{ marginBottom: 10 }}>
+            <span>Nếu thắng: /pay {bet.playerName} {formatFull(bet.amount * MULTIPLIER)}</span>
+            <button className="cmd-copy" onClick={() => copyCmd(bet)}>{copiedId === bet.id ? '✓ Đã chép' : 'COPY'}</button>
+          </div>
+          <div className="btn-row">
+            <button className="btn btn-ghost" onClick={() => resolve(bet, 'rejected')}>Từ chối</button>
+            <button className="btn btn-lose" onClick={() => resolve(bet, 'lose')}>Thua</button>
+            <button className="btn btn-win" onClick={() => resolve(bet, 'win')}>Thắng</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============ COMPONENT: AdminLogin ============
+function AdminLogin() {
+  const { loginAdmin } = useAuth();
+  const [pass, setPass] = useState('');
+  const [err, setErr] = useState(false);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!loginAdmin(pass)) { setErr(true); setTimeout(() => setErr(false), 1200); }
+  }
+
+  return (
+    <div className="card fade-in">
+      <div className="eyebrow">// Khu Vực Hạn Chế</div>
+      <h1 className="title">Admin Access</h1>
+      <p className="subtitle">Nhập mật khẩu quản trị.</p>
+      <form onSubmit={handleSubmit}>
+        <div className="field">
+          <label>Passcode</label>
+          <input className="tx-input" type="password" value={pass} onChange={(e) => setPass(e.target.value)} autoFocus />
+        </div>
+        {err && <div className="error-text">⚠ Sai mật khẩu.</div>}
+        <button className="btn btn-primary">Truy cập</button>
+      </form>
+    </div>
+  );
+}
+
+// ============ COMPONENT: AdminDashboard ============
+function AdminDashboard() {
+  const { logoutAdmin } = useAuth();
+  const { items: allUsers } = useCollection('users');
+  const { items: allQueue } = useCollection('queue');
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const activeUsers = useMemo(
+    () => allUsers.filter((u) => u.status !== 'left').sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)),
+    [allUsers]
+  );
+
+  async function setRole(uid, role) {
+    await db.ref(`users/${uid}/role`).set(role);
+    await db.ref(`users/${uid}/status`).set('approved');
+  }
+  async function revoke(uid) {
+    await db.ref(`users/${uid}/role`).set('pending');
+    await db.ref(`users/${uid}/status`).set('pending');
+  }
+  async function kick(uid) { await db.ref(`users/${uid}`).remove(); }
+  async function forceReset() {
+    await db.ref('users').remove();
+    await db.ref('queue').remove();
+    await db.ref('settings/lastReset').set(Date.now());
+    setConfirmReset(false);
+  }
+
+  const roleLabel = { pending: 'Chờ duyệt', host: 'Nhà cái', player: 'Người chơi' };
+  const activeBets = allQueue.filter((q) => q.status === 'waiting').length;
+
+  return (
+    <div className="card card-wide fade-in">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="eyebrow">// Admin Control</div>
+        <button className="btn btn-ghost" style={{ width: 'auto', padding: '6px 14px', fontSize: 12 }} onClick={logoutAdmin}>Đăng xuất</button>
+      </div>
+      <h1 className="title">Danh sách người dùng online ({activeUsers.length})</h1>
+      <p className="subtitle">Có {activeBets} ván đang chờ xử lý.</p>
+      {activeUsers.length === 0 && <div className="empty-state">Chưa có ai truy cập.</div>}
+      {activeUsers.map((u) => (
+        <div key={u.id} className="user-row">
+          <div>
+            <div className="qi-name">{u.name}</div>
+            <span className={`pill pill-${u.role === 'pending' ? 'pending' : u.role}`}>{roleLabel[u.role] || u.role}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <button className={`role-btn ${u.role === 'host' && u.status === 'approved' ? 'active-host' : ''}`} onClick={() => setRole(u.id, 'host')}>Chỉ định Nhà Cái</button>
+            <button className={`role-btn ${u.role === 'player' && u.status === 'approved' ? 'active-player' : ''}`} onClick={() => setRole(u.id, 'player')}>Chỉ định Người Chơi</button>
+            {u.status === 'approved' && <button className="role-btn" onClick={() => revoke(u.id)}>Thu hồi</button>}
+            <button className="role-btn" style={{ color: 'var(--luck-red)' }} onClick={() => kick(u.id)}>Xóa</button>
+          </div>
+        </div>
+      ))}
+      <div className="danger-zone">
+        <div className="eyebrow" style={{ color: 'var(--luck-red)' }}>// Vùng nguy hiểm</div>
+        <p className="subtitle" style={{ marginBottom: 12 }}>Xóa sạch toàn bộ user và hàng đợi. Hệ thống cũng tự reset sau 24h.</p>
+        {!confirmReset ? (
+          <button className="btn btn-lose" style={{ width: 'auto' }} onClick={() => setConfirmReset(true)}>Force Reset Toàn Bộ</button>
+        ) : (
+          <div className="btn-row">
+            <button className="btn btn-lose" onClick={forceReset}>⚠ Xác nhận xóa sạch</button>
+            <button className="btn btn-ghost" onClick={() => setConfirmReset(false)}>Hủy</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============ APP ============
+function useAutoReset() {
+  useEffect(() => {
+    (async () => {
+      const snap = await db.ref('settings/lastReset').once('value');
+      const last = snap.exists() ? snap.val() : 0;
+      if (Date.now() - last > RESET_INTERVAL_MS) {
+        await db.ref('users').remove();
+        await db.ref('queue').remove();
+        await db.ref('settings/lastReset').set(Date.now());
+      }
+    })();
+  }, []);
+}
+
+function MainFlow({ userDoc }) {
+  if (userDoc === undefined) return <div className="spinner-wrap"><div className="spinner" /></div>;
+  if (!userDoc || userDoc.status === 'left') return <NameGate />;
+  if (userDoc.status === 'pending') return <PendingApproval name={userDoc.name} />;
+  if (userDoc.status === 'approved' && userDoc.role === 'host') return <HostDashboard />;
+  if (userDoc.status === 'approved' && userDoc.role === 'player') return <PlayerUI />;
+  return <PendingApproval name={userDoc.name} />;
+}
+
+function App() {
+  useAutoReset();
+  const { userDoc, isAdmin, leaveSession } = useAuth();
+  const isAdminRoute = window.location.search.includes('admin');
+
+  return (
+    <div className="screen">
+      <div className="topbar">
+        <div className="brand">TÀI·XỈU <b>ESCROW</b> // SERVER QUEUE SYSTEM</div>
+        {userDoc && !isAdminRoute && (
+          <button className="btn btn-ghost" style={{ width: 'auto', padding: '6px 14px', fontSize: 12 }} onClick={leaveSession}>
+            Thoát ({userDoc.name})
+          </button>
+        )}
+      </div>
+      {isAdminRoute ? (isAdmin ? <AdminDashboard /> : <AdminLogin />) : <MainFlow userDoc={userDoc} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <AuthProvider><App /></AuthProvider>
+);
+</script>
+</body>
+</html>
