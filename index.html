@@ -100,6 +100,15 @@ input.tx-input::placeholder { color: var(--text-dim); }
 .role-btn.active-player { background: rgba(62,167,255,.15); color: var(--money-blue); border-color: var(--money-blue); }
 .empty-state { text-align: center; color: var(--text-dim); font-family: var(--font-mono); font-size: 13px; padding: 40px 0; }
 .danger-zone { margin-top: 32px; border-top: 1px solid var(--panel-edge); padding-top: 18px; }
+.pill-win { background: rgba(62,255,160,.12); color: var(--luck-green); box-shadow: var(--glow-green); }
+.pill-lose { background: rgba(255,62,94,.12); color: var(--luck-red); box-shadow: var(--glow-red); }
+.pill-rejected { background: rgba(255,62,94,.12); color: var(--luck-red); box-shadow: var(--glow-red); }
+.stat-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.stat-box { flex: 1; min-width: 90px; background: var(--void); border: 1px solid var(--panel-edge); border-radius: 10px; padding: 12px 8px; text-align: center; }
+.stat-num { font-family: var(--font-mono); font-size: 19px; font-weight: 700; }
+.stat-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; color: var(--text-dim); text-transform: uppercase; margin-top: 4px; }
+.chart-wrap { background: var(--void); border: 1px solid var(--panel-edge); border-radius: 10px; padding: 12px; margin-bottom: 20px; }
+.hist-item { display: flex; justify-content: space-between; align-items: center; background: var(--void); border: 1px solid var(--panel-edge); border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; animation: fadeIn .3s ease both; }
 </style>
 </head>
 <body>
@@ -484,6 +493,7 @@ function PlayerUI() {
   }
 
   return (
+    <>
     <div className="card fade-in">
       <div className="eyebrow">// Bàn Cược</div>
       <h1 className="title">Đặt cược Tài Xỉu</h1>
@@ -518,6 +528,110 @@ function PlayerUI() {
       <button className="btn btn-gold" disabled={!validAmount || !effectiveHost} onClick={handleConfirmBank}>
         Đã Bank — Vào Hàng Chờ
       </button>
+    </div>
+    <PlayerHistory uid={uid} allQueue={allQueue} />
+    </>
+  );
+}
+
+// ============ COMPONENT: PlayerHistory (danh sách + biểu đồ lãi/lỗ) ============
+function PlayerHistory({ uid, allQueue }) {
+  const history = useMemo(() => {
+    return allQueue
+      .filter((q) => q.playerId === uid && ['win', 'lose', 'rejected'].includes(q.status))
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  }, [allQueue, uid]);
+
+  if (history.length === 0) {
+    return (
+      <div className="card card-wide fade-in" style={{ marginTop: 20 }}>
+        <div className="eyebrow">// Lịch Sử</div>
+        <h1 className="title">Thắng / Thua của bạn</h1>
+        <div className="empty-state">Chưa có ván nào hoàn tất — cược xong sẽ hiện ở đây.</div>
+      </div>
+    );
+  }
+
+  let cum = 0;
+  const points = history.map((h) => {
+    let net = 0;
+    if (h.status === 'win') net = (h.winAmount || h.amount * 2) - h.amount;
+    else if (h.status === 'lose') net = -h.amount;
+    cum += net;
+    return { ...h, net, cum };
+  });
+
+  const totalWin = points.filter((p) => p.status === 'win').length;
+  const totalLose = points.filter((p) => p.status === 'lose').length;
+  const totalRejected = points.filter((p) => p.status === 'rejected').length;
+  const netTotal = points[points.length - 1]?.cum || 0;
+
+  const w = 600, h = 140, pad = 10;
+  const maxAbs = Math.max(1, ...points.map((p) => Math.abs(p.cum)));
+  const stepX = points.length > 1 ? (w - pad * 2) / (points.length - 1) : 0;
+  const scaleY = (h / 2 - pad) / maxAbs;
+  const coords = points.map((p, i) => `${pad + i * stepX},${h / 2 - p.cum * scaleY}`);
+  const pathD = 'M' + coords.join(' L');
+
+  const statusLabel = { win: 'Thắng', lose: 'Thua', rejected: 'Từ chối' };
+
+  return (
+    <div className="card card-wide fade-in" style={{ marginTop: 20 }}>
+      <div className="eyebrow">// Lịch Sử</div>
+      <h1 className="title">Thắng / Thua của bạn</h1>
+
+      <div className="stat-row">
+        <div className="stat-box">
+          <div className="stat-num" style={{ color: 'var(--luck-green)' }}>{totalWin}</div>
+          <div className="stat-label">Thắng</div>
+        </div>
+        <div className="stat-box">
+          <div className="stat-num" style={{ color: 'var(--luck-red)' }}>{totalLose}</div>
+          <div className="stat-label">Thua</div>
+        </div>
+        <div className="stat-box">
+          <div className="stat-num" style={{ color: 'var(--text-mid)' }}>{totalRejected}</div>
+          <div className="stat-label">Từ chối</div>
+        </div>
+        <div className="stat-box">
+          <div className="stat-num" style={{ color: netTotal >= 0 ? 'var(--money-blue)' : 'var(--luck-red)' }}>
+            {netTotal >= 0 ? '+' : ''}{formatAmount(netTotal)}
+          </div>
+          <div className="stat-label">Lãi/Lỗ ròng</div>
+        </div>
+      </div>
+
+      {points.length > 1 && (
+        <div className="chart-wrap">
+          <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" width="100%" height="140">
+            <line x1="0" y1={h / 2} x2={w} y2={h / 2} stroke="var(--panel-edge)" strokeWidth="1" />
+            <path d={pathD} fill="none" stroke="var(--money-blue)" strokeWidth="2"
+              style={{ filter: 'drop-shadow(0 0 4px rgba(62,167,255,.7))' }} />
+            {points.map((p, i) => {
+              const x = pad + i * stepX, y = h / 2 - p.cum * scaleY;
+              const color = p.status === 'win' ? 'var(--luck-green)' : p.status === 'lose' ? 'var(--luck-red)' : 'var(--text-dim)';
+              return <circle key={p.id} cx={x} cy={y} r="3" fill={color} />;
+            })}
+          </svg>
+        </div>
+      )}
+
+      <div>
+        {[...points].reverse().map((p) => (
+          <div key={p.id} className="hist-item">
+            <div>
+              <div className="qi-name">{p.hostName}</div>
+              <div className="qi-meta">{p.createdAt ? new Date(p.createdAt).toLocaleString('vi-VN') : ''}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span className={`pill pill-${p.status}`}>{statusLabel[p.status]}</span>
+              <div className={p.net >= 0 ? 'amount-money' : 'amount-gold'} style={{ marginTop: 4, color: p.net >= 0 ? 'var(--luck-green)' : 'var(--luck-red)', textShadow: 'none' }}>
+                {p.net >= 0 ? '+' : ''}{formatAmount(p.net)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
