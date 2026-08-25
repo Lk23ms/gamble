@@ -82,6 +82,14 @@ input.tx-input::placeholder { color: var(--text-dim); }
 .result-note { color: var(--text-mid); font-size: 14px; margin-bottom: 24px; }
 .fade-in { animation: fadeIn .35s ease both; }
 @keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform: translateY(0);} }
+.screen-shake { animation: shakeAnim .42s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes shakeAnim {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-9px); }
+  40%, 60% { transform: translateX(9px); }
+}
+@keyframes flashFade { from { opacity: 1; } to { opacity: 0; } }
 .queue-item { background: var(--void); border: 1px solid var(--panel-edge); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; animation: fadeIn .3s ease both; }
 .qi-name { font-weight: 600; font-size: 15px; }
 .qi-meta { font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
@@ -147,6 +155,95 @@ function formatAmount(num) {
 function formatFull(num) {
   if (num == null || isNaN(num)) return '0';
   return Math.round(Number(num)).toLocaleString('vi-VN').replace(/,/g, '.');
+}
+
+// ============ SOUND FX (Web Audio API, tự tổng hợp, không cần file nhạc) ============
+let _audioCtx = null;
+function getAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
+}
+function playTone(ctx, freq, start, duration, type, peak) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, ctx.currentTime + start);
+  gain.gain.linearRampToValueAtTime(peak, ctx.currentTime + start + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(ctx.currentTime + start);
+  osc.stop(ctx.currentTime + start + duration + 0.05);
+}
+function playWinSound() {
+  try {
+    const ctx = getAudioCtx();
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => playTone(ctx, f, i * 0.09, 0.28, 'triangle', 0.16));
+  } catch (e) {}
+}
+function playLoseSound() {
+  try {
+    const ctx = getAudioCtx();
+    playTone(ctx, 220, 0, 0.35, 'sawtooth', 0.13);
+    playTone(ctx, 155, 0.12, 0.45, 'sawtooth', 0.13);
+  } catch (e) {}
+}
+
+// ============ VISUAL FX: confetti thắng / rung màn hình thua ============
+function confettiBurst() {
+  const canvas = document.createElement('canvas');
+  Object.assign(canvas.style, { position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 9999 });
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  const colors = ['#3effa0', '#3ea7ff', '#ffcf3e'];
+  const particles = Array.from({ length: 90 }, () => ({
+    x: Math.random() * canvas.width,
+    y: -20 - Math.random() * canvas.height * 0.4,
+    r: 4 + Math.random() * 4,
+    c: colors[Math.floor(Math.random() * colors.length)],
+    vy: 2.5 + Math.random() * 3.5,
+    vx: -1.5 + Math.random() * 3,
+    rot: Math.random() * 360,
+    vr: -8 + Math.random() * 16,
+  }));
+  let frame = 0;
+  function tick() {
+    frame++;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach((p) => {
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate((p.rot * Math.PI) / 180);
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.r / 2, -p.r / 2, p.r, p.r * 1.8);
+      ctx.restore();
+    });
+    if (frame < 130) requestAnimationFrame(tick);
+    else canvas.remove();
+  }
+  tick();
+}
+function flashScreen(color) {
+  const div = document.createElement('div');
+  Object.assign(div.style, {
+    position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 9998,
+    background: `radial-gradient(circle, ${color}33, transparent 70%)`,
+    animation: 'flashFade .6s ease-out forwards',
+  });
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 650);
+}
+function shakeScreen() {
+  document.body.classList.add('screen-shake');
+  setTimeout(() => document.body.classList.remove('screen-shake'), 420);
+}
+function triggerResultFx(status) {
+  if (status === 'win') { playWinSound(); confettiBurst(); flashScreen('#3effa0'); }
+  else if (status === 'lose') { playLoseSound(); shakeScreen(); flashScreen('#ff3e5e'); }
+  else if (status === 'rejected') { playLoseSound(); shakeScreen(); flashScreen('#ff3e5e'); }
 }
 
 // ============ HOOK: lắng nghe 1 collection realtime ============
@@ -303,6 +400,13 @@ function PlayerUI() {
   const [selectedHostId, setSelectedHostId] = useState('');
   const [err, setErr] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // Nổ confetti / rung màn hình / phát âm thanh đúng 1 lần khi có kết quả mới
+  useEffect(() => {
+    if (activeBet && ['win', 'lose', 'rejected'].includes(activeBet.status)) {
+      triggerResultFx(activeBet.status);
+    }
+  }, [activeBet?.id, activeBet?.status]);
 
   const parsedAmount = parseAmount(amountInput);
   const validAmount = !isNaN(parsedAmount) && parsedAmount > 0;
