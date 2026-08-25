@@ -198,8 +198,10 @@ function AuthProvider({ children }) {
     });
     if (dup) throw new Error('Tên này đang có người sử dụng, vui lòng chọn tên khác.');
 
+    // Mặc định vào web là Player luôn, không cần chờ duyệt.
+    // Admin chỉ cần thao tác khi muốn nâng ai đó lên làm Host.
     await db.ref(`users/${uid}`).set({
-      name: trimmed, role: 'pending', status: 'pending',
+      name: trimmed, role: 'player', status: 'approved',
       createdAt: firebase.database.ServerValue.TIMESTAMP,
       lastSeen: firebase.database.ServerValue.TIMESTAMP,
     });
@@ -253,7 +255,7 @@ function NameGate() {
     <div className="card fade-in">
       <div className="eyebrow">// Truy Cập Hệ Thống</div>
       <h1 className="title">Nhập tên trong game</h1>
-      <p className="subtitle">Tên này sẽ được dùng để Admin nhận diện và cấp quyền (Nhà cái / Người chơi).</p>
+      <p className="subtitle">Nhập IGN Minecraft — bạn sẽ vào ngay với vai trò Người chơi. Admin có thể chỉ định bạn làm Nhà cái nếu cần.</p>
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label>IGN Minecraft</label>
@@ -355,7 +357,7 @@ function PlayerUI() {
           {isRejected ? (
             <>
               <div className="result-title-lose">BỊ TỪ CHỐI</div>
-              <p className="result-note">Nhà cái chưa nhận được tiền trong game. Vui lòng kiểm tra lại.</p>
+              <p className="result-note">Ván cược đã bị hủy — có thể do Nhà cái từ chối hoặc không còn hoạt động. Vui lòng đặt cược lại.</p>
             </>
           ) : isWin ? (
             <>
@@ -512,11 +514,27 @@ function AdminDashboard() {
     await db.ref(`users/${uid}/role`).set(role);
     await db.ref(`users/${uid}/status`).set('approved');
   }
-  async function revoke(uid) {
-    await db.ref(`users/${uid}/role`).set('pending');
-    await db.ref(`users/${uid}/status`).set('pending');
+
+  // Hủy các ván đang "waiting" gắn với 1 host — dùng khi host bị xóa/thu hồi quyền,
+  // để tránh Player bị kẹt màn hình chờ mãi mãi vì Nhà cái không còn tồn tại.
+  async function cancelHostBets(hostUid) {
+    const snap = await db.ref('queue').orderByChild('hostId').equalTo(hostUid).once('value');
+    const updates = {};
+    snap.forEach((child) => {
+      if (child.val().status === 'waiting') updates[`${child.key}/status`] = 'rejected';
+    });
+    if (Object.keys(updates).length) await db.ref('queue').update(updates);
   }
-  async function kick(uid) { await db.ref(`users/${uid}`).remove(); }
+
+  async function revoke(uid) {
+    await cancelHostBets(uid);
+    await db.ref(`users/${uid}/role`).set('player');
+    await db.ref(`users/${uid}/status`).set('approved');
+  }
+  async function kick(uid) {
+    await cancelHostBets(uid);
+    await db.ref(`users/${uid}`).remove();
+  }
   async function forceReset() {
     await db.ref('users').remove();
     await db.ref('queue').remove();
